@@ -18,7 +18,6 @@ import {
   LogoCategory,
   OrganizationProfile,
 } from '../types/studio';
-import { optimizeLogoDataUrl } from '../services/indexedDbStore';
 
 interface SponsorsManagePageProps {
   organizations: OrganizationProfile[];
@@ -97,9 +96,8 @@ export const SponsorsManagePage: React.FC<SponsorsManagePageProps> = ({
         (file, idx) =>
           new Promise<BrandingLogoAsset>((resolve) => {
             const reader = new FileReader();
-            reader.onload = async () => {
-              const rawDataUrl = reader.result as string;
-              const dataUrl = await optimizeLogoDataUrl(rawDataUrl);
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
               const img = new Image();
               img.onload = () => {
                 const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);

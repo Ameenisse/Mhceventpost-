@@ -21,9 +21,6 @@ import {
   Trash2,
   Type,
   Upload,
-  Languages,
-  Loader2,
-  Wand2,
   X,
 } from 'lucide-react';
 import {
@@ -35,8 +32,6 @@ import {
 } from '../types/studio';
 import { createBlankEventConfiguration } from '../services/persistentStorage';
 import { hexToRgba, resolveSponsorCategoryLabel } from '../services/canvasRenderer';
-import { BackendAIService } from '../services/aiService';
-import { optimizeLogoDataUrl } from '../services/indexedDbStore';
 
 interface EventManagePageProps {
   organizations: OrganizationProfile[];
@@ -136,62 +131,6 @@ export const EventManagePage: React.FC<EventManagePageProps> = ({
   const [portraitSameAsLandscape, setPortraitSameAsLandscape] = useState<boolean>(true);
 
   const [quickUploadCategory, setQuickUploadCategory] = useState<LogoCategory>('participant');
-
-  // Backend Gemini AI State
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [showAiModal, setShowAiModal] = useState(false);
-  const [aiTopicInput, setAiTopicInput] = useState('');
-  const [aiError, setAiError] = useState<string | null>(null);
-
-  const handleAiAutoFill = async () => {
-    if (!aiTopicInput.trim()) return;
-    setIsAiLoading(true);
-    setAiError(null);
-    try {
-      const res = await BackendAIService.suggestEventDetails({
-        topic: aiTopicInput.trim(),
-        organizationName: currentOrg?.name,
-        currentTitle: title,
-      });
-      if (res) {
-        if (direction === 'rtl' && res.titleDhivehi) {
-          setTitle(res.titleDhivehi);
-          if (res.subtitleDhivehi) setSubtitle(res.subtitleDhivehi);
-        } else {
-          setTitle(res.title || res.titleDhivehi || aiTopicInput);
-          if (res.subtitle) setSubtitle(res.subtitle);
-        }
-        if (res.venue) setVenue(res.venue);
-        if (res.bannerColor) setBannerColor(res.bannerColor);
-        if (res.bannerEndColor) setBannerEndColor(res.bannerEndColor);
-        if (res.suggestedSponsorLabel) setSponsorLabelText(res.suggestedSponsorLabel);
-        setShowAiModal(false);
-        setAiTopicInput('');
-      }
-    } catch (err: any) {
-      setAiError(err?.message || 'AI branding synthesis failed. Please retry.');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  const handleAiTranslateDhivehi = async () => {
-    if (!title.trim()) return;
-    setIsAiLoading(true);
-    try {
-      const res = await BackendAIService.translateToDhivehi(title, 'event_title');
-      if (res && res.translatedText) {
-        setTitle(res.translatedText);
-        setDirection('rtl');
-        setAlignment('right');
-        setFontFamily("'Mv_Eamaan_XP', 'Faruma', 'Noto Sans Thaana', sans-serif");
-      }
-    } catch (err: any) {
-      console.error('Translation error:', err);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
 
   const targetOrgId = selectedOrgId || currentOrg?.id || '';
   const orgScopedEvents = targetOrgId
@@ -365,9 +304,8 @@ export const EventManagePage: React.FC<EventManagePageProps> = ({
         (file, idx) =>
           new Promise<BrandingLogoAsset>((resolve) => {
             const reader = new FileReader();
-            reader.onload = async () => {
-              const rawDataUrl = reader.result as string;
-              const dataUrl = await optimizeLogoDataUrl(rawDataUrl);
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
               const img = new Image();
               img.onload = () => {
                 const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
@@ -824,36 +762,9 @@ export const EventManagePage: React.FC<EventManagePageProps> = ({
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-medium text-slate-400">
-                    Event Title Text *
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={isAiLoading || !title.trim()}
-                      onClick={handleAiTranslateDhivehi}
-                      className="px-2 py-0.5 text-[11px] rounded bg-purple-950/60 hover:bg-purple-900 border border-purple-500/40 text-purple-200 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-40"
-                      title="Translate English title to authentic Dhivehi Thaana"
-                    >
-                      {isAiLoading ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Languages className="w-3 h-3 text-purple-300" />
-                      )}
-                      <span>To Dhivehi</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAiModal(true)}
-                      className="px-2 py-0.5 text-[11px] rounded bg-blue-950/60 hover:bg-blue-900 border border-blue-500/40 text-blue-200 flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Auto-generate complete event branding with Gemini AI"
-                    >
-                      <Sparkles className="w-3 h-3 text-blue-400" />
-                      <span>AI Magic Fill</span>
-                    </button>
-                  </div>
-                </div>
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                  Event Title Text *
+                </label>
                 <input
                   type="text"
                   required
@@ -1958,90 +1869,6 @@ export const EventManagePage: React.FC<EventManagePageProps> = ({
           </div>
         </div>
       </div>
-
-      {/* AI Magic Fill Modal */}
-      {showAiModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0F172A] border border-blue-500/30 rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">AI Event Magic Fill</h3>
-                  <p className="text-[11px] text-slate-400">Powered by server-side Gemini 3.8</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAiModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-300">
-              Enter your event topic or idea. Gemini will generate professional titles, Dhivehi Thaana transliteration, matching gradient palettes, and sponsor branding.
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium text-slate-400">
-                Event Topic or Concept
-              </label>
-              <input
-                type="text"
-                value={aiTopicInput}
-                onChange={(e) => setAiTopicInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAiAutoFill();
-                  }
-                }}
-                placeholder="e.g. National Badminton Championship Hulhumale 2026"
-                className="w-full px-3.5 py-2.5 text-xs bg-[#0B0F17] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
-                autoFocus
-              />
-            </div>
-
-            {aiError && (
-              <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-800 text-rose-300 text-xs">
-                {aiError}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAiModal(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isAiLoading || !aiTopicInput.trim()}
-                onClick={handleAiAutoFill}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white flex items-center gap-1.5 shadow-lg shadow-blue-900/40 cursor-pointer"
-              >
-                {isAiLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Synthesizing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="w-3.5 h-3.5" />
-                    <span>Generate Branding</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

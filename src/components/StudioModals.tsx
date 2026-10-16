@@ -24,7 +24,6 @@ import {
   SavedTemplatePreset,
 } from '../types/studio';
 import { createBlankEventConfiguration } from '../services/persistentStorage';
-import { optimizeLogoDataUrl } from '../services/indexedDbStore';
 
 interface StudioModalsProps {
   activeModal: 'events' | 'organizations' | 'assets' | 'templates' | null;
@@ -149,9 +148,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
         (file, index) =>
           new Promise<BrandingLogoAsset>((resolve) => {
             const reader = new FileReader();
-            reader.onload = async () => {
-              const rawDataUrl = reader.result as string;
-              const dataUrl = await optimizeLogoDataUrl(rawDataUrl);
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
               const img = new Image();
               img.onload = () => {
                 const aspect =
@@ -495,9 +493,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
-      const rawDataUrl = reader.result as string;
-      const dataUrl = await optimizeLogoDataUrl(rawDataUrl);
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
       const img = new Image();
       img.onload = () => {
         const aspect = img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 2.5;

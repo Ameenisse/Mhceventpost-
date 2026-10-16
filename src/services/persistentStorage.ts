@@ -22,7 +22,6 @@ import {
   UserRole,
 } from '../types/studio';
 import { db, handleFirestoreError, OperationType } from './firebaseClient';
-import { idbDelete, idbGet, idbSet, optimizeLogoDataUrl } from './indexedDbStore';
 
 export const SUPER_ADMIN_EMAIL = 'ameen.isse@gmail.com';
 
@@ -134,46 +133,11 @@ export const DEFAULT_EVENTS: EventConfiguration[] = [];
 export const DEFAULT_TEMPLATES: SavedTemplatePreset[] = [];
 
 
-// In-memory cache ensures zero-latency synchronous access and prevents
-// QuotaExceededError from breaking active UI sessions when browser storage is constrained.
-const memoryCache = new Map<string, any>();
-
-function pruneLocalStorage(): void {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      // Evict redundant un-scoped keys if scoped keys exist
-      if (
-        k === STORAGE_KEYS.LOGOS ||
-        k === STORAGE_KEYS.GLOBAL_ORGS ||
-        k === STORAGE_KEYS.GLOBAL_EVENTS ||
-        k === 'epbs_temp_cache'
-      ) {
-        keysToRemove.push(k);
-      }
-    }
-    for (const k of keysToRemove) {
-      localStorage.removeItem(k);
-    }
-  } catch (err) {
-    console.warn('[PersistentStorage] Pruning localStorage caught:', err);
-  }
-}
-
 function safeLoad<T>(key: string, fallback: T): T {
-  if (memoryCache.has(key)) {
-    return memoryCache.get(key) as T;
-  }
   try {
-    if (typeof localStorage === 'undefined') return fallback;
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as T;
-    memoryCache.set(key, parsed);
-    return parsed;
+    return JSON.parse(raw) as T;
   } catch (e) {
     console.warn(`Failed to parse persistent storage key ${key}:`, e);
     return fallback;
@@ -181,38 +145,11 @@ function safeLoad<T>(key: string, fallback: T): T {
 }
 
 function safeSave<T>(key: string, value: T): boolean {
-  // 1. Memory cache update (immediate, never fails)
-  memoryCache.set(key, value);
-
-  // 2. Persist to IndexedDB (asynchronous background storage, bypasses 5MB quota)
-  idbSet(key, value).catch(() => {});
-
-  // 3. Persist to localStorage with intelligent quota recovery
   try {
-    if (typeof localStorage === 'undefined') return true;
     localStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch (e: any) {
-    const isQuotaError =
-      e?.name === 'QuotaExceededError' ||
-      e?.code === 22 ||
-      e?.number === -2147024882 ||
-      String(e).toLowerCase().includes('quota');
-
-    if (isQuotaError) {
-      pruneLocalStorage();
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-        return true;
-      } catch {
-        // If localStorage is completely full, data is preserved in memoryCache and IndexedDB
-        console.warn(
-          `[PersistentStorage] Browser localStorage quota reached for key "${key}". Safely preserved in IndexedDB and memory.`
-        );
-        return false;
-      }
-    }
-    console.warn(`[PersistentStorage] Failed to save key "${key}":`, e);
+  } catch (e) {
+    console.error(`Failed to save persistent storage key ${key}:`, e);
     return false;
   }
 }
@@ -378,9 +315,6 @@ export const PersistentStorageService = {
   // Local fallback helpers (strictly scoped per UID when signed in, with safe global fallback)
   getOrganizations(uid?: string): OrganizationProfile[] {
     const key = uid ? `${STORAGE_KEYS.ORGANIZATIONS}_${uid}` : STORAGE_KEYS.ORGANIZATIONS;
-    if (memoryCache.has(key)) {
-      return memoryCache.get(key);
-    }
     let list = safeLoad<OrganizationProfile[]>(key, []).filter(
       (o) => !LEGACY_DEMO_ORG_IDS.has(o.id)
     );
@@ -391,31 +325,24 @@ export const PersistentStorageService = {
       if (fallbackList.length > 0) {
         list = fallbackList;
         safeSave(key, list);
-        try {
-          localStorage.removeItem(STORAGE_KEYS.ORGANIZATIONS);
-        } catch (_) {}
       }
     }
-    memoryCache.set(key, list);
     return list;
   },
 
   saveOrganizations(orgs: OrganizationProfile[], uid?: string): boolean {
     const cleanList = orgs.filter((o) => !LEGACY_DEMO_ORG_IDS.has(o.id));
+    // Always persist to global backup so data is never lost
+    safeSave(STORAGE_KEYS.ORGANIZATIONS, cleanList);
     if (uid) {
       const key = `${STORAGE_KEYS.ORGANIZATIONS}_${uid}`;
       safeSave(key, cleanList);
-    } else {
-      safeSave(STORAGE_KEYS.ORGANIZATIONS, cleanList);
     }
     return true;
   },
 
   getEvents(uid?: string): EventConfiguration[] {
     const key = uid ? `${STORAGE_KEYS.EVENTS}_${uid}` : STORAGE_KEYS.EVENTS;
-    if (memoryCache.has(key)) {
-      return memoryCache.get(key);
-    }
     let list = safeLoad<EventConfiguration[]>(key, []).filter(
       (e) => !LEGACY_DEMO_EVENT_IDS.has(e.id) && !LEGACY_DEMO_ORG_IDS.has(e.primaryOrgId)
     );
@@ -426,22 +353,17 @@ export const PersistentStorageService = {
       if (fallbackList.length > 0) {
         list = fallbackList;
         safeSave(key, list);
-        try {
-          localStorage.removeItem(STORAGE_KEYS.EVENTS);
-        } catch (_) {}
       }
     }
-    memoryCache.set(key, list);
     return list;
   },
 
   saveEvents(events: EventConfiguration[], uid?: string): boolean {
     const cleanList = events.filter((e) => !LEGACY_DEMO_EVENT_IDS.has(e.id));
+    safeSave(STORAGE_KEYS.EVENTS, cleanList);
     if (uid) {
       const key = `${STORAGE_KEYS.EVENTS}_${uid}`;
       safeSave(key, cleanList);
-    } else {
-      safeSave(STORAGE_KEYS.EVENTS, cleanList);
     }
     return true;
   },
@@ -456,20 +378,16 @@ export const PersistentStorageService = {
   },
 
   saveActiveEventId(eventId: string, uid?: string): boolean {
+    safeSave(STORAGE_KEYS.ACTIVE_EVENT_ID, eventId);
     if (uid) {
       const key = `${STORAGE_KEYS.ACTIVE_EVENT_ID}_${uid}`;
       safeSave(key, eventId);
-    } else {
-      safeSave(STORAGE_KEYS.ACTIVE_EVENT_ID, eventId);
     }
     return true;
   },
 
   getLogos(uid?: string): BrandingLogoAsset[] {
     const key = uid ? `${STORAGE_KEYS.LOGOS}_${uid}` : STORAGE_KEYS.LOGOS;
-    if (memoryCache.has(key)) {
-      return memoryCache.get(key);
-    }
     let list = safeLoad<BrandingLogoAsset[]>(key, []).filter(
       (l) => !LEGACY_DEMO_LOGO_IDS.has(l.id)
     );
@@ -480,63 +398,46 @@ export const PersistentStorageService = {
       if (fallbackList.length > 0) {
         list = fallbackList;
         safeSave(key, list);
-        // Remove global copy to reclaim quota immediately
-        try {
-          localStorage.removeItem(STORAGE_KEYS.LOGOS);
-        } catch (_) {}
       }
     }
-    memoryCache.set(key, list);
     return list;
   },
 
   saveLogos(logos: BrandingLogoAsset[], uid?: string): boolean {
     const cleanList = logos.filter((l) => !LEGACY_DEMO_LOGO_IDS.has(l.id));
+    safeSave(STORAGE_KEYS.LOGOS, cleanList);
     if (uid) {
       const key = `${STORAGE_KEYS.LOGOS}_${uid}`;
       safeSave(key, cleanList);
-      // Prune redundant un-scoped duplicate to keep quota clean
-      try {
-        localStorage.removeItem(STORAGE_KEYS.LOGOS);
-      } catch (_) {}
-    } else {
-      safeSave(STORAGE_KEYS.LOGOS, cleanList);
     }
     return true;
   },
 
   getFonts(uid?: string): CustomFontAsset[] {
     const key = uid ? `${STORAGE_KEYS.FONTS}_${uid}` : STORAGE_KEYS.FONTS;
-    if (memoryCache.has(key)) {
-      return memoryCache.get(key);
-    }
     let list = safeLoad<CustomFontAsset[]>(key, []);
     if (list.length === 0 && uid) {
       list = safeLoad<CustomFontAsset[]>(STORAGE_KEYS.FONTS, []);
     }
     if (list.length === 0) {
       safeSave(key, DEFAULT_FONTS);
+      safeSave(STORAGE_KEYS.FONTS, DEFAULT_FONTS);
       return DEFAULT_FONTS;
     }
-    memoryCache.set(key, list);
     return list;
   },
 
   saveFonts(fonts: CustomFontAsset[], uid?: string): boolean {
+    safeSave(STORAGE_KEYS.FONTS, fonts);
     if (uid) {
       const key = `${STORAGE_KEYS.FONTS}_${uid}`;
       safeSave(key, fonts);
-    } else {
-      safeSave(STORAGE_KEYS.FONTS, fonts);
     }
     return true;
   },
 
   getTemplates(uid?: string): SavedTemplatePreset[] {
     const key = uid ? `${STORAGE_KEYS.TEMPLATES}_${uid}` : STORAGE_KEYS.TEMPLATES;
-    if (memoryCache.has(key)) {
-      return memoryCache.get(key);
-    }
     let list = safeLoad<SavedTemplatePreset[]>(key, []).filter(
       (t) => !LEGACY_DEMO_TEMPLATE_IDS.has(t.id)
     );
@@ -547,22 +448,17 @@ export const PersistentStorageService = {
       if (fallbackList.length > 0) {
         list = fallbackList;
         safeSave(key, list);
-        try {
-          localStorage.removeItem(STORAGE_KEYS.TEMPLATES);
-        } catch (_) {}
       }
     }
-    memoryCache.set(key, list);
     return list;
   },
 
   saveTemplates(templates: SavedTemplatePreset[], uid?: string): boolean {
     const cleanList = templates.filter((t) => !LEGACY_DEMO_TEMPLATE_IDS.has(t.id));
+    safeSave(STORAGE_KEYS.TEMPLATES, cleanList);
     if (uid) {
       const key = `${STORAGE_KEYS.TEMPLATES}_${uid}`;
       safeSave(key, cleanList);
-    } else {
-      safeSave(STORAGE_KEYS.TEMPLATES, cleanList);
     }
     return true;
   },
@@ -755,7 +651,6 @@ export const PersistentStorageService = {
       return;
     }
 
-    const optimizedDataUrl = await optimizeLogoDataUrl(logo.dataUrl || '');
     const mutableFields = {
       name: truncateStr(logo.name || 'Logo', 200),
       category: ['organization', 'sponsor', 'participant', 'co-organizer'].includes(logo.category)
@@ -763,7 +658,7 @@ export const PersistentStorageService = {
         : 'sponsor',
       organizationId: truncateStr(logo.organizationId || '', 128),
       eventId: truncateStr(logo.eventId || '', 128),
-      dataUrl: truncateStr(optimizedDataUrl || '', 850000),
+      dataUrl: truncateStr(logo.dataUrl || '', 850000),
       storagePath: truncateStr(logo.storagePath || '', 500),
       aspectRatio: Number.isFinite(logo.aspectRatio) ? Number(logo.aspectRatio) : 2.5,
       updatedAt: serverTimestamp(),
@@ -1165,62 +1060,7 @@ export const PersistentStorageService = {
 
   async saveDeveloperProfile(profile: DeveloperProfileConfig): Promise<boolean> {
     safeSave(STORAGE_KEYS.DEVELOPER_PROFILE, profile);
-    try {
-      if (db) {
-        const profRef = doc(db, 'system_config', 'developer_profile');
-        await setDoc(
-          profRef,
-          {
-            id: 'developer_profile',
-            photoUrl: truncateStr(profile.photoUrl || DEFAULT_DEVELOPER_PROFILE.photoUrl, 1000),
-            photoTransparency: Math.max(0, Math.min(100, profile.photoTransparency ?? 30)),
-            developerName: truncateStr(
-              profile.developerName || DEFAULT_DEVELOPER_PROFILE.developerName,
-              150
-            ),
-            designation: truncateStr(
-              profile.designation || DEFAULT_DEVELOPER_PROFILE.designation,
-              200
-            ),
-            bio: truncateStr(profile.bio || DEFAULT_DEVELOPER_PROFILE.bio, 1000),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    } catch (e) {
-      console.warn('Firestore developer_profile sync notice:', e);
-    }
     return true;
-  },
-
-  async fetchDeveloperProfileFromCloud(): Promise<DeveloperProfileConfig | null> {
-    try {
-      if (db) {
-        const profRef = doc(db, 'system_config', 'developer_profile');
-        const snap = await getDoc(profRef);
-        if (snap.exists()) {
-          const d = snap.data();
-          const profile: DeveloperProfileConfig = {
-            photoUrl: d.photoUrl || DEFAULT_DEVELOPER_PROFILE.photoUrl,
-            photoTransparency:
-              typeof d.photoTransparency === 'number' ? d.photoTransparency : 30,
-            developerName: d.developerName || DEFAULT_DEVELOPER_PROFILE.developerName,
-            designation: d.designation || DEFAULT_DEVELOPER_PROFILE.designation,
-            bio: d.bio ?? DEFAULT_DEVELOPER_PROFILE.bio,
-            updatedAt:
-              typeof d.updatedAt?.toDate === 'function'
-                ? d.updatedAt.toDate().toISOString()
-                : new Date().toISOString(),
-          };
-          safeSave(STORAGE_KEYS.DEVELOPER_PROFILE, profile);
-          return profile;
-        }
-      }
-    } catch (e) {
-      console.warn('Firestore developer_profile fetch notice:', e);
-    }
-    return null;
   },
 
   /**
@@ -1254,40 +1094,6 @@ export const PersistentStorageService = {
 
   saveRegisteredUsers(users: RegisteredUserRecord[]): boolean {
     return safeSave(STORAGE_KEYS.REGISTERED_USERS, users);
-  },
-
-  async fetchRegisteredUsersFromCloud(): Promise<RegisteredUserRecord[]> {
-    try {
-      if (db) {
-        const q = query(collection(db, 'registered_users'));
-        const snap = await getDocs(q);
-        const list: RegisteredUserRecord[] = [];
-        for (const d of snap.docs) {
-          const data = d.data();
-          list.push({
-            uid: data.uid,
-            displayName: data.displayName || 'Studio Member',
-            email: data.email || '',
-            photoURL: data.photoURL || '',
-            role: data.role || 'user',
-            status: data.status || 'pending',
-            requestedAt: data.requestedAt || undefined,
-            approvedAt: data.approvedAt || undefined,
-            suspendedAt: data.suspendedAt || undefined,
-            lastSignInAt: data.lastSignInAt || new Date().toISOString(),
-            organizationCount: data.organizationCount || 0,
-            eventCount: data.eventCount || 0,
-          });
-        }
-        if (list.length > 0) {
-          this.saveRegisteredUsers(list);
-          return list;
-        }
-      }
-    } catch (e) {
-      console.warn('Firestore registered_users cloud fetch notice:', e);
-    }
-    return this.getRegisteredUsers();
   },
 
   async registerOrCheckUser(fbUser: {
@@ -1342,35 +1148,6 @@ export const PersistentStorageService = {
 
     this.saveRegisteredUsers(users);
 
-    // Sync registration record to Firestore
-    try {
-      if (db) {
-        const userRef = doc(db, 'registered_users', sanitizeDocId(fbUser.uid));
-        await setDoc(
-          userRef,
-          {
-            uid: record.uid,
-            displayName: truncateStr(record.displayName, 150),
-            email: truncateStr(record.email, 200),
-            photoURL: truncateStr(record.photoURL || '', 1000),
-            role: record.role,
-            status: record.status,
-            requestedAt: record.requestedAt || new Date().toISOString(),
-            approvedAt: record.approvedAt || null,
-            suspendedAt: record.suspendedAt || null,
-            lastSignInAt: record.lastSignInAt,
-            organizationCount: record.organizationCount || 0,
-            eventCount: record.eventCount || 0,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    } catch (e) {
-      console.warn('Firestore registered_users sync notice:', e);
-    }
-
     return {
       role: record.role,
       status: record.status,
@@ -1394,22 +1171,6 @@ export const PersistentStorageService = {
       };
       this.saveRegisteredUsers(users);
     }
-
-    // Sync status change to Firestore
-    try {
-      if (db) {
-        const userRef = doc(db, 'registered_users', sanitizeDocId(uid));
-        await updateDoc(userRef, {
-          status: nextStatus,
-          approvedAt: nextStatus === 'approved' ? new Date().toISOString() : null,
-          suspendedAt: nextStatus === 'suspended' ? new Date().toISOString() : null,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } catch (e) {
-      console.warn('Firestore updateUserStatus sync notice:', e);
-    }
-
     return users;
   },
 
@@ -1449,31 +1210,11 @@ export const PersistentStorageService = {
   },
 
   async getAllOrganizationsAcrossUsers(): Promise<OrganizationProfile[]> {
-    const users = await this.fetchRegisteredUsersFromCloud();
+    const users = this.getRegisteredUsers();
     const allOrgs: OrganizationProfile[] = [];
     const seenIds = new Set<string>();
 
     for (const u of users) {
-      try {
-        if (db) {
-          const q = query(collection(db, 'users', u.uid, 'organizations'));
-          const snap = await getDocs(q);
-          for (const d of snap.docs) {
-            const data = d.data();
-            if (!seenIds.has(data.id) && !LEGACY_DEMO_ORG_IDS.has(data.id)) {
-              seenIds.add(data.id);
-              try {
-                allOrgs.push(JSON.parse(data.configPayload) as OrganizationProfile);
-              } catch {
-                // fallback
-              }
-            }
-          }
-        }
-      } catch {
-        // ignore cloud read errors and fallback to local
-      }
-
       const orgs = this.getOrganizations(u.uid);
       for (const o of orgs) {
         if (!seenIds.has(o.id) && !LEGACY_DEMO_ORG_IDS.has(o.id)) {
@@ -1487,34 +1228,11 @@ export const PersistentStorageService = {
   },
 
   async getAllEventsAcrossUsers(): Promise<EventConfiguration[]> {
-    const users = await this.fetchRegisteredUsersFromCloud();
+    const users = this.getRegisteredUsers();
     const allEvents: EventConfiguration[] = [];
     const seenIds = new Set<string>();
 
     for (const u of users) {
-      try {
-        if (db) {
-          const orgs = this.getOrganizations(u.uid);
-          for (const org of orgs) {
-            const q = query(collection(db, 'users', u.uid, 'organizations', org.id, 'events'));
-            const snap = await getDocs(q);
-            for (const d of snap.docs) {
-              const data = d.data();
-              if (!seenIds.has(data.id) && !LEGACY_DEMO_EVENT_IDS.has(data.id)) {
-                seenIds.add(data.id);
-                try {
-                  allEvents.push(JSON.parse(data.configPayload) as EventConfiguration);
-                } catch {
-                  // fallback
-                }
-              }
-            }
-          }
-        }
-      } catch {
-        // ignore cloud read errors and fallback to local
-      }
-
       const evts = this.getEvents(u.uid);
       for (const e of evts) {
         if (!seenIds.has(e.id) && !LEGACY_DEMO_EVENT_IDS.has(e.id)) {

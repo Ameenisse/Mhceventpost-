@@ -20,11 +20,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  Share2,
-  X,
-  Check,
 } from 'lucide-react';
-import { BackendAIService } from '../services/aiService';
 import {
   AuthenticatedUserProfile,
   BatchProcessState,
@@ -89,42 +85,6 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-
-  // AI Social Media Captions State
-  const [showCaptionsModal, setShowCaptionsModal] = useState(false);
-  const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
-  const [captionsResult, setCaptionsResult] = useState<{
-    englishCaption: string;
-    dhivehiCaption: string;
-    hashtags: string[];
-  } | null>(null);
-  const [captionCopied, setCaptionCopied] = useState<'english' | 'dhivehi' | null>(null);
-
-  const handleGenerateCaptions = async () => {
-    setIsGeneratingCaptions(true);
-    setShowCaptionsModal(true);
-    try {
-      const sponsorNames = activeEvent.sponsorsConfig.selectedSponsorIds
-        .map((id) => logos.find((l) => l.id === id)?.name)
-        .filter(Boolean) as string[];
-
-      const res = await BackendAIService.generateCaptions({
-        eventName: activeEvent.title,
-        organizationName: activeOrg?.name || 'Organization',
-        venue: activeEvent.venue,
-        date: activeEvent.date,
-        keySponsors: sponsorNames,
-        photoCount: photos.length || 1,
-      });
-      if (res) {
-        setCaptionsResult(res);
-      }
-    } catch (e) {
-      console.error('Failed to generate captions:', e);
-    } finally {
-      setIsGeneratingCaptions(false);
-    }
-  };
 
   // Active organization for the currently selected organization or active event
   const activeOrg: OrganizationProfile | undefined =
@@ -609,161 +569,9 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
                 </button>
               </div>
             )}
-
-            {/* AI Announcements & Captions Action */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400">
-                AI Social Announcement Generator
-              </span>
-              <button
-                type="button"
-                onClick={handleGenerateCaptions}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-950/50 hover:bg-purple-900 border border-purple-500/40 text-purple-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Share2 className="w-3.5 h-3.5 text-purple-300" />
-                <span>Generate Captions (English & Dhivehi)</span>
-              </button>
-            </div>
           </div>
         </section>
       </div>
-
-      {/* AI Captions Modal */}
-      {showCaptionsModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0F172A] border border-purple-500/30 rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Social Media Announcements</h3>
-                  <p className="text-[11px] text-slate-400">
-                    Bilingual publishing captions synthesized by Gemini 3.8
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCaptionsModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {isGeneratingCaptions ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
-                <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                <p className="text-xs">Generating bilingual captions and sponsor credits...</p>
-              </div>
-            ) : captionsResult ? (
-              <div className="space-y-4">
-                {/* English Announcement */}
-                <div className="space-y-1.5 bg-[#0B0F17] p-3.5 rounded-xl border border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-300">English Caption</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          `${captionsResult.englishCaption}\n\n${captionsResult.hashtags.join(' ')}`
-                        );
-                        setCaptionCopied('english');
-                        setTimeout(() => setCaptionCopied(null), 2000);
-                      }}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                    >
-                      {captionCopied === 'english' ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-200 whitespace-pre-line leading-relaxed">
-                    {captionsResult.englishCaption}
-                  </p>
-                </div>
-
-                {/* Dhivehi Announcement */}
-                <div className="space-y-1.5 bg-[#0B0F17] p-3.5 rounded-xl border border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-300">Dhivehi (Thaana) Caption</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          `${captionsResult.dhivehiCaption}\n\n${captionsResult.hashtags.join(' ')}`
-                        );
-                        setCaptionCopied('dhivehi');
-                        setTimeout(() => setCaptionCopied(null), 2000);
-                      }}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                    >
-                      {captionCopied === 'dhivehi' ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <p
-                    dir="rtl"
-                    className="text-xs text-slate-200 whitespace-pre-line leading-relaxed font-thaana text-right"
-                  >
-                    {captionsResult.dhivehiCaption}
-                  </p>
-                </div>
-
-                {/* Hashtags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {captionsResult.hashtags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-0.5 rounded-md bg-purple-950/40 border border-purple-800/40 text-[10px] text-purple-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={handleGenerateCaptions}
-                disabled={isGeneratingCaptions}
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Regenerate</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCaptionsModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
