@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Mv_Eamaan_XP';
+  src: url('/fonts/Mv_Eamaan_XP.otf') format('opentype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Faruma';
+  src: url('/fonts/Faruma.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Unicode-range fallback: instantly renders any Dhivehi/Thaana character in Mv_Eamaan_XP & Faruma */
+@font-face {
+  font-family: 'DhivehiAppFont';
+  src: url('/fonts/Mv_Eamaan_XP.otf') format('opentype'),
+       url('/fonts/Faruma.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0780-07BF, U+060C, U+061B, U+061F, U+FD3E, U+FD3F, U+0660-0669;
+}
+
+@layer base {
+  :root {
+    --font-thaana: 'Mv_Eamaan_XP', 'Faruma', 'Noto Sans Thaana', sans-serif;
+    --font-display: 'Outfit', 'Mv_Eamaan_XP', 'Faruma', 'Noto Sans Thaana', sans-serif;
+    --font-sans: 'Public Sans', 'Mv_Eamaan_XP', 'Faruma', 'Noto Sans Thaana', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: 'DhivehiAppFont', var(--font-sans);
+    background-color: #0B0F17;
+    color: #F1F5F9;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'DhivehiAppFont', var(--font-display);
+  }
+
+  .font-mono, .tabular-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Default Dhivehi (Thaana) text across the app to Mv_Eamaan_XP unless customized */
+  .font-thaana,
+  .font-dhivehi,
+  [dir="rtl"],
+  :lang(dv),
+  *[class*="thaana"] {
+    font-family: 'Mv_Eamaan_XP', 'Faruma', 'Noto Sans Thaana', sans-serif;
+  }
+
+  /* Ensure inputs, selects, and textareas default to Mv_Eamaan_XP for Dhivehi characters */
+  input, textarea, select, button {
+    font-family: 'DhivehiAppFont', inherit;
+  }
+}
+
+/* Custom sleek dark scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0F17;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}

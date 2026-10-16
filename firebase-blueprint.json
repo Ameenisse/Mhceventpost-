@@ -1,0 +1,525 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user account record scoped to Firebase UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "preferencesJson": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "photoURL", "preferencesJson", "createdAt", "updatedAt"]
+    },
+    "OrganizationRecord": {
+      "title": "OrganizationRecord",
+      "description": "Multi-organization record owned by a specific authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "shortName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "nameDhivehi": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "website": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "mainLogo1Id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "mainLogo2Id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "configPayload": {
+          "type": "string",
+          "maxLength": 120000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "name",
+        "shortName",
+        "nameDhivehi",
+        "address",
+        "phone",
+        "email",
+        "website",
+        "mainLogo1Id",
+        "mainLogo2Id",
+        "archived",
+        "configPayload",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EventRecord": {
+      "title": "EventRecord",
+      "description": "Reusable event branding configuration belonging to an organization and owner UID. Never stores event photographs.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "organizationId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "venue": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "configPayload": {
+          "type": "string",
+          "maxLength": 250000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "organizationId",
+        "title",
+        "date",
+        "venue",
+        "archived",
+        "configPayload",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LogoRecord": {
+      "title": "LogoRecord",
+      "description": "Reusable branding logo asset (organization, sponsor, participant, co-organizer) owned by the authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "category": {
+          "type": "string",
+          "enum": ["organization", "sponsor", "participant", "co-organizer"]
+        },
+        "organizationId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "eventId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "dataUrl": {
+          "type": "string",
+          "maxLength": 850000
+        },
+        "storagePath": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "aspectRatio": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "name",
+        "category",
+        "organizationId",
+        "eventId",
+        "dataUrl",
+        "storagePath",
+        "aspectRatio",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FontRecord": {
+      "title": "FontRecord",
+      "description": "Reusable custom or Dhivehi RTL font asset owned by the authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 250
+        },
+        "isRtlOptimized": {
+          "type": "boolean"
+        },
+        "dataUrl": {
+          "type": "string",
+          "maxLength": 850000
+        },
+        "storagePath": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "name",
+        "family",
+        "isRtlOptimized",
+        "dataUrl",
+        "storagePath",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TemplateRecord": {
+      "title": "TemplateRecord",
+      "description": "Saved reusable banner, gradient, or full-event template preset owned by the authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "organizationId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "category": {
+          "type": "string",
+          "enum": ["banner", "color-grade", "full-event"]
+        },
+        "configPayload": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "organizationId",
+        "name",
+        "description",
+        "category",
+        "configPayload",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RegisteredUserRecord": {
+      "title": "RegisteredUserRecord",
+      "description": "User registration, authentication status, and RBAC approval record.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "role": {
+          "type": "string",
+          "enum": ["super_admin", "user"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "suspended"]
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "suspendedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastSignInAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "organizationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "role",
+        "status",
+        "lastSignInAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DeveloperProfileRecord": {
+      "title": "DeveloperProfileRecord",
+      "description": "Global developer profile card configured by the Super Admin.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "photoTransparency": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "developerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "designation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "photoUrl",
+        "photoTransparency",
+        "developerName",
+        "designation",
+        "bio",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profile and studio preferences."
+    },
+    "/users/{uid}/organizations/{organizationId}": {
+      "schema": { "$ref": "#/entities/OrganizationRecord" },
+      "description": "Organizations owned by user {uid}."
+    },
+    "/users/{uid}/organizations/{organizationId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/EventRecord" },
+      "description": "Events belonging to organization {organizationId} owned by {uid}."
+    },
+    "/users/{uid}/logos/{logoId}": {
+      "schema": { "$ref": "#/entities/LogoRecord" },
+      "description": "Reusable organization, sponsor, and participant logos owned by {uid}."
+    },
+    "/users/{uid}/fonts/{fontId}": {
+      "schema": { "$ref": "#/entities/FontRecord" },
+      "description": "Reusable custom and Dhivehi Thaana fonts owned by {uid}."
+    },
+    "/users/{uid}/templates/{templateId}": {
+      "schema": { "$ref": "#/entities/TemplateRecord" },
+      "description": "Reusable banner, gradient, and event templates owned by {uid}."
+    },
+    "/registered_users/{uid}": {
+      "schema": { "$ref": "#/entities/RegisteredUserRecord" },
+      "description": "User account registration and approval status for Super Admin authorization."
+    },
+    "/system_config/{configId}": {
+      "schema": { "$ref": "#/entities/DeveloperProfileRecord" },
+      "description": "Global system configurations managed by Super Admin."
+    }
+  }
+}

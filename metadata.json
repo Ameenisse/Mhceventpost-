@@ -1,0 +1,6 @@
+{
+  "name": "Event Photo Branding Studio",
+  "description": "Professional event photography batch branding studio with persistent event designs, Dhivehi RTL typography, linear gradient banners, Lightroom-inspired adjustments, and memory-safe temporary photo processing with direct folder export and automatic cleanup.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
